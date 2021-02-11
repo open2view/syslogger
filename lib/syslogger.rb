@@ -14,6 +14,10 @@ class Syslogger
   attr_reader   :level, :options, :facility
   attr_accessor :ident, :formatter, :max_octets
 
+# If messages need to be split up one might need to help identify them with
+  # other messages using pre/post fixes
+  attr_accessor :multiline_postfix, :multiline_prefix
+
   MAPPING = { # :nodoc:
     Logger::DEBUG   => Syslog::LOG_DEBUG,
     Logger::INFO    => Syslog::LOG_INFO,
@@ -137,6 +141,8 @@ class Syslogger
   def write(msg)
     add(Logger::INFO, msg)
   end
+
+  alias original_puts puts
   alias <<   write
   alias puts write
 
@@ -205,17 +211,27 @@ class Syslogger
     MUTEX.synchronize do
       Syslog.open(progname, @options, @facility) do |s|
         s.mask = mask
+        sent_count = 0
+
         if max_octets
           buffer = ''
           formatted_communication.bytes do |byte|
             buffer.concat(byte)
+
             # if the last byte we added is potentially part of an escape, we'll go ahead and add another byte
             if buffer.bytesize >= max_octets && !['%'.ord, '\\'.ord].include?(byte)
-              s.log(MAPPING[severity], buffer)
+
+              sent_count += 1
+              s.log(MAPPING[severity], buffer_multiline(buffer, sent_count))
+
               buffer = ''
             end
           end
-          s.log(MAPPING[severity], buffer) unless buffer.empty?
+
+          unless buffer.empty?
+            sent_count += 1
+            s.log(MAPPING[severity], buffer_multiline(buffer, sent_count))
+          end
         else
           s.log(MAPPING[severity], formatted_communication)
         end
@@ -223,6 +239,14 @@ class Syslogger
     end
   end
   # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
+
+  # +sent_count+ is 1 based
+  def buffer_multiline(buf, sent_count)
+    return buf if sent_count == 1 || !(multiline_postfix || multiline_prefix)
+    buf = buf+multiline_postfix if multiline_postfix
+    buf = multiline_prefix+buf  if multiline_prefix
+    buf
+  end
 
   # Borrowed from ActiveSupport.
   # See: https://github.com/rails/rails/blob/master/activesupport/lib/active_support/tagged_logging.rb

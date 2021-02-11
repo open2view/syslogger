@@ -185,6 +185,42 @@ describe Syslogger do
     end
   end
 
+  describe '#multiline_postfix=' do
+    let(:logger) { Syslogger.new('my_app', Syslog::LOG_PID, nil) }
+
+    it 'should set the multiline_postfix for the logger' do
+      part1 = 'oooo1'
+      part2 = 'xxxx2'
+
+      expect(Syslog).to receive(:open).with('my_app', Syslog::LOG_PID, nil).and_yield(fake_syslog)
+
+      expect(fake_syslog).to receive(:log).with(Syslog::LOG_INFO, (part1*10))
+      expect(fake_syslog).to receive(:log).with(Syslog::LOG_INFO, (part2*10)+'[ML]')
+
+      logger.max_octets = 50
+      logger.multiline_postfix = '[ML]'
+      logger.info("#{part1*10}#{part2*10}") # Size = 100
+    end
+  end
+
+  describe '#multiline_prefix=' do
+    let(:logger) { Syslogger.new('my_app', Syslog::LOG_PID, nil) }
+
+    it 'should set the multiline_postfix for the logger' do
+      part1 = 'oooo1'
+      part2 = 'xxxx2'
+
+      expect(Syslog).to receive(:open).with('my_app', Syslog::LOG_PID, nil).and_yield(fake_syslog)
+
+      expect(fake_syslog).to receive(:log).with(Syslog::LOG_INFO, (part1*10))
+      expect(fake_syslog).to receive(:log).with(Syslog::LOG_INFO, '[ML]'+(part2*10))
+
+      logger.max_octets = 50
+      logger.multiline_prefix = '[ML]'
+      logger.info("#{part1*10}#{part2*10}") # Size = 100
+    end
+  end
+
   describe '#ident=' do
     let(:logger) { Syslogger.new('my_app', Syslog::LOG_PID | Syslog::LOG_CONS, nil) }
 
