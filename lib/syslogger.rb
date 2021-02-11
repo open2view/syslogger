@@ -14,7 +14,7 @@ class Syslogger
   attr_reader   :level, :options, :facility
   attr_accessor :ident, :formatter, :max_octets
 
-# If messages need to be split up one might need to help identify them with
+  # If messages need to be split up one might need to help identify them with
   # other messages using pre/post fixes
   attr_accessor :multiline_postfix, :multiline_prefix
 
